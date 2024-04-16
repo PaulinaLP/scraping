@@ -7,28 +7,23 @@ Created on Wed Nov 29 11:01:16 2023
 import datetime
 import time
 import pandas as pd
-import urllib
 import re 
 from html import unescape
 import pickle
+from urllib import request
 import numpy as np
 
 def extract_lotes(input_string):
     pattern = r'\((\d+) lotes\)'
     match = re.search(pattern, input_string)
-    return int(match.group(1)) if match else None
+    resultado= int(match.group(1)) if match else int(0)
+    return resultado
 
-df=pd.read_excel("output.xlsx")
+df=pd.read_excel("output\output.xlsx")
 df['lotes']=df['subasta'].apply(extract_lotes)
-df['lotes']=df['lotes'].fillna(0)
-df['lotes']=df['lotes'].astype(int)
 dfLotes=pd.DataFrame(columns=['codigo_subasta','lote'])
-dfLotes.set_index(['codigo_subasta', 'lote'], inplace=True)
 
 b = 200
-#este bucle recorre todas las subastas
-df=df[df['lotes']!=0]
-df=df.reset_index(drop=True)
 
 for index, row in df.iterrows():
     codigo=row['codigo_subasta']     
@@ -40,9 +35,9 @@ for index, row in df.iterrows():
         for ver in [1,2,3,4,5,6]:
             try:
                 url="https://subastas.boe.es/detalleSubasta.php?idSub="+codigo+"&ver="+str(ver)
-                sourceCode = str(urllib.request.urlopen(url).read().decode('utf-8'))   
+                sourceCode = str(request.urlopen(url).read().decode('utf-8'))
                 sourceCode = unescape(sourceCode)
-                #print(ver)            
+                print(url)
                 start=0
                 seguir=1            
                 #este bucle recorre el codigo fuente y apunta todos los datos de substa
@@ -72,7 +67,7 @@ for index, row in df.iterrows():
             for ver in [1,2,3,4,5,6]:
                 try:  
                     url="https://subastas.boe.es/detalleSubasta.php?idSub="+codigo+"&ver="+str(ver)+"&idLote="+str(lote)
-                    sourceCode = str(urllib.request.urlopen(url).read().decode('utf-8'))   
+                    sourceCode = str(request.urlopen(url).read().decode('utf-8'))
                     sourceCode = unescape(sourceCode)
                     #print(ver)            
                     start=0
@@ -94,8 +89,8 @@ for index, row in df.iterrows():
                             if fila==0:
                                 data = [{'codigo_subasta': row['codigo_subasta'], 'lote': lote}]                            
                                 new_row = pd.DataFrame(data)
-                                new_row.set_index(['codigo_subasta', 'lote'], inplace=True) 
-                                dfLotes = pd.concat([dfLotes,new_row])                                                                
+                                dfLotes = pd.concat([dfLotes,new_row])
+                                print(dfLotes)
                             dfLotes.at[(row['codigo_subasta'], lote), columna+str(ver)] = valor 
                             fila=fila+1
                             #print(f'{columna}{valor}')
@@ -143,15 +138,17 @@ def transformacion(dFin):
     return dFin
 
 dFin=transformacion(dFin)
+dFin.to_excel('output\lectura_subastas.xlsx')
+dfLotesFin.to_excel('output\lectura_subastas_lotes.xlsx')
 dfLotesFin=transformacion(dfLotesFin)
 dfLotesFin=dfLotesFin.reset_index()
 
-dFin.to_excel('lectura_subastas.xlsx')
-dfLotesFin.to_excel('lectura_subastas_lotes.xlsx')
+dFin.to_excel('output\lectura_subastas.xlsx')
+dfLotesFin.to_excel('output\lectura_subastas_lotes.xlsx')
 
-with open('lectura_subastas.pkl', 'wb') as f:
+with open('output\lectura_subastas.pkl', 'wb') as f:
     pickle.dump(df, f)
-with open('lectura_subastas_lotes.pkl', 'wb') as f:
+with open('output\lectura_subastas_lotes.pkl', 'wb') as f:
     pickle.dump(dfLotesFin, f)
 
     
@@ -189,4 +186,4 @@ for index, row in sinLotes.iterrows():
         pass
 a=df[['numB']]
 c=pd.merge(sinLotes,a,how='inner',left_index=True,right_index=True)
-c.to_excel('numBienes.xlsx')
+c.to_excel('output\numBienes.xlsx')
