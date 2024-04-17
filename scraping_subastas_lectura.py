@@ -1,189 +1,160 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov 29 11:01:16 2023
-
-@author: AAM01379H
-"""
 import datetime
+import re
 import time
-import pandas as pd
-import re 
 from html import unescape
-import pickle
 from urllib import request
-import numpy as np
 
+import pandas as pd
+
+
+# Función para extraer el número de lotes de la descripción de la subasta
 def extract_lotes(input_string):
     pattern = r'\((\d+) lotes\)'
     match = re.search(pattern, input_string)
-    resultado= int(match.group(1)) if match else int(0)
+    resultado = int(match.group(1)) if match else 0
     return resultado
 
-df=pd.read_excel("output\output.xlsx")
-df['lotes']=df['subasta'].apply(extract_lotes)
-dfLotes=pd.DataFrame(columns=['codigo_subasta','lote'])
 
-b = 200
-
-for index, row in df.iterrows():
-    codigo=row['codigo_subasta']     
-    if index % b ==0:
-        print(index)   
-        print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
-    #este bucle recorre todas las pestañas
-    if row['lotes']==0:         
-        for ver in [1,2,3,4,5,6]:
-            try:
-                url="https://subastas.boe.es/detalleSubasta.php?idSub="+codigo+"&ver="+str(ver)
-                sourceCode = str(request.urlopen(url).read().decode('utf-8'))
-                sourceCode = unescape(sourceCode)
-                print(url)
-                start=0
-                seguir=1            
-                #este bucle recorre el codigo fuente y apunta todos los datos de substa
-                while seguir==1:
-                    match=re.search('<th>',sourceCode[start:])     
-                    if match:
-                        m=match.start()+start
-                        e=re.search('</th>',sourceCode[m:(m+100)]) 
-                        end=e.start()+m
-                        columna=sourceCode[(m+4):end] 
-                        posValor=re.search('<td>',sourceCode[end:]) 
-                        posValorStart=posValor.start()+end
-                        posValor2=re.search('</td>',sourceCode[posValorStart:]) 
-                        posValorEnd=posValor2.start()+posValorStart
-                        valor=sourceCode[(posValorStart+4):posValorEnd] 
-                        start=end                                        
-                        df.at[index, columna+str(ver)] = valor                    
-                        #print(f'{columna}{valor}')
-                    else:
-                        #cuando he recogido todos los datos va a la siguiente pestaña
-                        seguir=0     
-            except:
-                pass
-    else:
-        for lote in range(1,row['lotes']+1):
-            fila=0       
-            for ver in [1,2,3,4,5,6]:
-                try:  
-                    url="https://subastas.boe.es/detalleSubasta.php?idSub="+codigo+"&ver="+str(ver)+"&idLote="+str(lote)
-                    sourceCode = str(request.urlopen(url).read().decode('utf-8'))
-                    sourceCode = unescape(sourceCode)
-                    #print(ver)            
-                    start=0
-                    seguir=1            
-                    #este bucle recorre el codigo fuente y apunta todos los datos de substa                    
-                    while seguir==1:
-                        match=re.search('<th>',sourceCode[start:])     
-                        if match:
-                            m=match.start()+start
-                            e=re.search('</th>',sourceCode[m:(m+100)]) 
-                            end=e.start()+m
-                            columna=sourceCode[(m+4):end] 
-                            posValor=re.search('<td>',sourceCode[end:]) 
-                            posValorStart=posValor.start()+end
-                            posValor2=re.search('</td>',sourceCode[posValorStart:]) 
-                            posValorEnd=posValor2.start()+posValorStart
-                            valor=sourceCode[(posValorStart+4):posValorEnd] 
-                            start=end  
-                            if fila==0:
-                                data = [{'codigo_subasta': row['codigo_subasta'], 'lote': lote}]                            
-                                new_row = pd.DataFrame(data)
-                                dfLotes = pd.concat([dfLotes,new_row])
-                                print(dfLotes)
-                            dfLotes.at[(row['codigo_subasta'], lote), columna+str(ver)] = valor 
-                            fila=fila+1
-                            #print(f'{columna}{valor}')
-                        else:
-                            #cuando he recogido todos los datos va a la siguiente pestaña
-                            seguir=0     
-                except:
-                    pass
-
-dFin=df.copy()
-dfLotesFin=dfLotes.copy()
-
+# Función para extraer el texto entre etiquetas <strong>
 def extract_text(html_content):
     try:
-        match = re.search(r'<strong>(.*?)<\/strong>', html_content)        
+        match = re.search(r'<strong>(.*?)<\/strong>', html_content)
     except:
-        match=False
+        match = False
     return match.group(1) if match else None
+
+
+# Función para extraer el texto entre etiquetas <strong class="destaca">
 def extract_text2(html_content):
     try:
         match = re.search(r'<strong class="destaca">(.*?)<\/strong>', html_content)
     except:
-        match=False
+        match = False
     return match.group(1) if match else None
-def convertNum (amount_string):
+
+
+# Función para convertir cadenas de texto con cantidades numéricas a números
+def convertNum(amount_string):
     try:
         numeric_string = ''.join(char for char in str(amount_string) if char.isdigit() or char in {','})
         numeric_string = numeric_string.replace(',', '.')
         numeric_value = float(numeric_string)
     except:
-        numeric_value=None
+        numeric_value = None
     return numeric_value
 
-dFin.columns
-# Apply the function to the DataFrame column
-def transformacion(dFin):
-    dFin['Tipo de subasta1'] = dFin['Tipo de subasta1'].apply(extract_text)
-    dFin['Identificador1'] = dFin['Identificador1'].apply(extract_text)
-    dFin['Fecha de inicio1'] = dFin['Fecha de inicio1'].apply(lambda x:str(x)[:10])
-    dFin['Fecha de conclusión1'] = dFin['Fecha de conclusión1'].apply(extract_text2)
-    dFin['Fecha de conclusión1'] = dFin['Fecha de conclusión1'].apply(lambda x:str(x)[:10])  
-    for columna in ['Cantidad reclamada1',  'Valor subasta1',
-    'Tasación1', 'Tramos entre pujas1', 'Importe del depósito1']:
-        dFin[columna]=dFin[columna].apply(convertNum)
-    return dFin
 
-dFin=transformacion(dFin)
-dFin.to_excel('output\lectura_subastas.xlsx')
-dfLotesFin.to_excel('output\lectura_subastas_lotes.xlsx')
-dfLotesFin=transformacion(dfLotesFin)
-dfLotesFin=dfLotesFin.reset_index()
+# Función para transformar el DataFrame principal
+def transformacion(df):
+    df['Tipo de subasta1'] = df['Tipo de subasta1'].apply(extract_text)
+    df['Identificador1'] = df['Identificador1'].apply(extract_text)
+    df['Fecha de inicio1'] = df['Fecha de inicio1'].apply(lambda x: str(x)[:10])
+    df['Fecha de conclusión1'] = df['Fecha de conclusión1'].apply(extract_text2)
+    df['Fecha de conclusión1'] = df['Fecha de conclusión1'].apply(lambda x: str(x)[:10])
+    for columna in ['Cantidad reclamada1', 'Valor subasta1', 'Tasación1', 'Tramos entre pujas1',
+                    'Importe del depósito1']:
+        try:
+            df[columna] = df[columna].apply(convertNum)
+        except:
+            pass
+    return df
 
-dFin.to_excel('output\lectura_subastas.xlsx')
-dfLotesFin.to_excel('output\lectura_subastas_lotes.xlsx')
+def lectura():
+    # Lectura del archivo de entrada
+    df = pd.read_excel("output\output.xlsx")
 
-with open('output\lectura_subastas.pkl', 'wb') as f:
-    pickle.dump(df, f)
-with open('output\lectura_subastas_lotes.pkl', 'wb') as f:
-    pickle.dump(dfLotesFin, f)
+    # Extracción del número de lotes
+    df['lotes'] = df['subasta'].apply(extract_lotes)
 
-    
-#check por si hay mas de 1 bien por subasta
-sinLotes=df[df['lotes']==0]
-sinLotes=sinLotes[['codigo_subasta']]
-sinLotes=sinLotes.reset_index(drop=True)
-b=200
-for index, row in sinLotes.iterrows():
-    codigo=row['codigo_subasta']     
-    if index % b ==0:
-        print(index)   
-        print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))        
-    try:
-        url="https://subastas.boe.es/detalleSubasta.php?idSub="+codigo+"&ver="+str(3)
-        sourceCode = str(urllib.request.urlopen(url).read().decode('utf-8'))   
-        sourceCode = unescape(sourceCode)
-        #print(ver)            
-        start=0
-        seguir=1    
-        numB=0
-        #este bucle recorre el codigo fuente y apunta todos los datos de substa
-        while seguir==1:
-            match=re.search('<h4>',sourceCode[start:])     
-            if match:
-                numB= numB+1
-                m=match.start()+start
-                end=m+3
-                start=end   
-            else:
-                #cuando he recogido todos los datos va a la siguiente pestaña
-                seguir=0    
-        df.at[index, 'numB'] = numB
-    except:
-        pass
-a=df[['numB']]
-c=pd.merge(sinLotes,a,how='inner',left_index=True,right_index=True)
-c.to_excel('output\numBienes.xlsx')
+    # DataFrame para almacenar los datos de los lotes
+    dfLotes = pd.DataFrame(columns=['codigo_subasta', 'lote'])
+
+    # Cantidad de filas a procesar en cada iteración
+    batch_size = 200
+
+    for index, row in df.iterrows():
+        codigo = row['codigo_subasta']
+
+        if index % batch_size == 0:
+            print(index)
+            print(datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S'))
+
+        # Si la subasta no tiene lotes
+        if row['lotes'] == 0:
+            for ver in range(1, 7):
+                try:
+                    url = "https://subastas.boe.es/detalleSubasta.php?idSub=" + codigo + "&ver=" + str(ver)
+                    sourceCode = str(request.urlopen(url).read().decode('utf-8'))
+                    sourceCode = unescape(sourceCode)
+                    print(url)
+                    start = 0
+                    seguir = 1
+
+                    # Recorrido del código fuente y extracción de los datos de la subasta
+                    while seguir == 1:
+                        match = re.search('<th>', sourceCode[start:])
+                        if match:
+                            m = match.start() + start
+                            e = re.search('</th>', sourceCode[m:(m + 100)])
+                            end = e.start() + m
+                            columna = sourceCode[(m + 4):end]
+                            posValor = re.search('<td>', sourceCode[end:])
+                            posValorStart = posValor.start() + end
+                            posValor2 = re.search('</td>', sourceCode[posValorStart:])
+                            posValorEnd = posValor2.start() + posValorStart
+                            valor = sourceCode[(posValorStart + 4):posValorEnd]
+                            start = end
+                            df.at[index, columna + str(ver)] = valor
+                        else:
+                            seguir = 0
+                except:
+                    pass
+
+        # Si la subasta tiene lotes
+        else:
+            for lote in range(1, row['lotes'] + 1):
+                for ver in range(1, 7):
+                    try:
+                        url = "https://subastas.boe.es/detalleSubasta.php?idSub=" + codigo + "&ver=" + str(
+                            ver) + "&idLote=" + str(lote)
+                        sourceCode = str(request.urlopen(url).read().decode('utf-8'))
+                        sourceCode = unescape(sourceCode)
+                        start = 0
+                        seguir = 1
+                        # Recorrido del código fuente y extracción de los datos de la subasta
+                        while seguir == 1:
+                            match = re.search('<th>', sourceCode[start:])
+                            if match:
+                                m = match.start() + start
+                                e = re.search('</th>', sourceCode[m:(m + 100)])
+                                end = e.start() + m
+                                columna = sourceCode[(m + 4):end]
+                                posValor = re.search('<td>', sourceCode[end:])
+                                posValorStart = posValor.start() + end
+                                posValor2 = re.search('</td>', sourceCode[posValorStart:])
+                                posValorEnd = posValor2.start() + posValorStart
+                                valor = sourceCode[(posValorStart + 4):posValorEnd]
+                                start = end
+
+                                # Crear una nueva fila en dfLotes si es la primera iteración para este lote
+                                if (row['codigo_subasta'], lote) not in dfLotes.index:
+                                    data = [{'codigo_subasta': row['codigo_subasta'], 'lote': lote}]
+                                    new_row = pd.DataFrame(data)
+                                    dfLotes = pd.concat([dfLotes, new_row])  # No need for ignore_index=True here
+                                    dfLotes.set_index(['codigo_subasta', 'lote'], inplace=True)  # Set both columns as index
+
+                                # Asignar el valor usando .loc[], se creará la fila/columna si no existe
+                                dfLotes.loc[(row['codigo_subasta'], lote), columna + str(ver)] = valor
+                            else:
+                                seguir = 0
+                    except:
+                        pass
+
+    # Transformar los DataFrames principales
+    df = transformacion(df)
+    dfLotes = transformacion(dfLotes)
+    dfLotes=dfLotes.reset_index(drop=True)
+
+    # Guardar los DataFrames en archivos Excel
+    df.to_excel('output\lectura_subastas.xlsx')
+    dfLotes.to_excel('output\lectura_subastas_lotes.xlsx')
