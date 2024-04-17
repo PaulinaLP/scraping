@@ -3,6 +3,7 @@ import re
 import time
 from html import unescape
 from urllib import request
+import os
 
 import pandas as pd
 
@@ -60,8 +61,9 @@ def transformacion(df):
     return df
 
 def lectura():
-    # Lectura del archivo de entrada
-    df = pd.read_excel("output\output.xlsx")
+    script_dir = os.path.dirname(os.path.abspath(__file__))    #
+    file_path = os.path.join(script_dir, "output", "output.xlsx")
+    df = pd.read_excel(file_path)
 
     # Extracción del número de lotes
     df['lotes'] = df['subasta'].apply(extract_lotes)
@@ -140,9 +142,8 @@ def lectura():
                                 if (row['codigo_subasta'], lote) not in dfLotes.index:
                                     data = [{'codigo_subasta': row['codigo_subasta'], 'lote': lote}]
                                     new_row = pd.DataFrame(data)
-                                    dfLotes = pd.concat([dfLotes, new_row])  # No need for ignore_index=True here
-                                    dfLotes.set_index(['codigo_subasta', 'lote'], inplace=True)  # Set both columns as index
-
+                                    dfLotes = pd.concat([dfLotes, new_row], ignore_index=True)  # No need for ignore_index=True here
+                                    dfLotes.set_index(['codigo_subasta', 'lote'], drop=False,inplace=True)  # Set both columns as index
                                 # Asignar el valor usando .loc[], se creará la fila/columna si no existe
                                 dfLotes.loc[(row['codigo_subasta'], lote), columna + str(ver)] = valor
                             else:
@@ -156,5 +157,7 @@ def lectura():
     dfLotes=dfLotes.reset_index(drop=True)
 
     # Guardar los DataFrames en archivos Excel
-    df.to_excel('output\lectura_subastas.xlsx')
-    dfLotes.to_excel('output\lectura_subastas_lotes.xlsx')
+    file_path = os.path.join(script_dir, "output", "lectura_subastas.xlsx")
+    df.to_excel(file_path)
+    file_path = os.path.join(script_dir, "output", "lectura_subastas_lotes.xlsx")
+    dfLotes.to_excel(file_path)

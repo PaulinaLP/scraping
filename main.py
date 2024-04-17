@@ -1,5 +1,6 @@
 import datetime
 import time
+import os
 from scraping_subastas import scrape_subastas
 from scraping_subastas_lectura import lectura
 def main():
@@ -11,7 +12,9 @@ def main():
     # Obtener datos de subastas
     my_df = scrape_subastas(my_dic)
     # Guardar datos en un archivo Excel
-    my_df.to_excel("output/output.xlsx", index=False)
+    script_dir = os.path.dirname(os.path.abspath(__file__))  #
+    file_path = os.path.join(script_dir, "output", "output.xlsx")
+    my_df.to_excel(file_path, index=False)
     lectura()
 
 if __name__ == "__main__":
