@@ -1,2 +1,2 @@
-# Scraping de web de subastas
-Este proyecto permite recolectar toda la información de subastas de la web: https://subastas.boe.es/
+# Public actions scraping
+This project creates an excel file with information of public actions in Spain. Source: https://subastas.boe.es/
